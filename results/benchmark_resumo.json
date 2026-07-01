@@ -1,0 +1,62 @@
+{
+  "aleatorio": {
+    "engagement": 0.875,
+    "material": 0.0,
+    "phi": -0.05,
+    "move_quality": -0.1928571428571428,
+    "blunder_rate": 0.14285714285714285,
+    "good_rate": 0.14285714285714285,
+    "completion_rate": 0.0,
+    "wins": 0,
+    "losses": 0,
+    "n_agent_moves": 7
+  },
+  "dqn_videochess": {
+    "engagement": 0.0,
+    "material": 0.0,
+    "phi": 0.0,
+    "move_quality": 0.0,
+    "blunder_rate": 0.0,
+    "good_rate": 0.0,
+    "completion_rate": 0.0,
+    "wins": 0,
+    "losses": 0,
+    "n_agent_moves": 0
+  },
+  "dqn_move": {
+    "engagement": 1.0,
+    "material": 0.0,
+    "phi": 0.0,
+    "move_quality": 2.8,
+    "blunder_rate": 0.0,
+    "good_rate": 1.0,
+    "completion_rate": 0.0,
+    "wins": 0,
+    "losses": 0,
+    "n_agent_moves": 8
+  },
+  "dqn_eval": {
+    "engagement": 0.0,
+    "material": 0.0,
+    "phi": 0.0,
+    "move_quality": 0.0,
+    "blunder_rate": 0.0,
+    "good_rate": 0.0,
+    "completion_rate": 0.0,
+    "wins": 0,
+    "losses": 0,
+    "n_agent_moves": 0
+  },
+  "dqn_noisy": {
+    "engagement": 0.0,
+    "material": 0.0,
+    "phi": 0.0,
+    "move_quality": 0.0,
+    "blunder_rate": 0.0,
+    "good_rate": 0.0,
+    "completion_rate": 0.0,
+    "wins": 0,
+    "losses": 0,
+    "n_agent_moves": 0
+  }
+}

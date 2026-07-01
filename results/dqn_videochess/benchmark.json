@@ -1,0 +1,14 @@
+{
+  "engagement": 0.0,
+  "material": 0.0,
+  "phi": 0.0,
+  "move_quality": 0.0,
+  "blunder_rate": 0.0,
+  "good_rate": 0.0,
+  "completion_rate": 0.0,
+  "wins": 0,
+  "losses": 0,
+  "n_agent_moves": 0,
+  "level": 0,
+  "level_desc": "INERTE / QUASE-INERTE \u2014 n\u00e3o joga de forma consistente (\u2248 congela)."
+}

@@ -1,0 +1,4 @@
+episode,steps,reward_sum,final_material,final_phi,illegal_count,eps,mean_loss,wall_sec
+0,5,0.42,0.0,4.2,0,1.0,0.07073,3.6
+1,5,0.0,0.0,-0.0,0,0.976,0.0373,4.6
+2,5,0.425,0.0,4.25,0,0.953,0.03031,6.4

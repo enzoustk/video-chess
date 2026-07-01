@@ -1,0 +1,21 @@
+{
+  "run": "dqn_chess_mat_long",
+  "max_episodes": 200,
+  "max_moves": 60,
+  "seed": 0,
+  "device": "mps",
+  "eps_start": 1.0,
+  "eps_end": 0.05,
+  "eps_decay_episodes": 140,
+  "lr": 0.0001,
+  "gamma": 0.99,
+  "batch_size": 32,
+  "buffer_size": 20000,
+  "learning_starts": 200,
+  "train_freq": 1,
+  "target_update_episodes": 5,
+  "eval_scale": 0.1,
+  "illegal_penalty": -0.5,
+  "use_noisy": false,
+  "reward_mode": "material"
+}

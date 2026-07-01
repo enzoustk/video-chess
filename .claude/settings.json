@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(awk -F, '{print \"ep\"$1\" step\"$2\" moves=\"$6\" mat=\"$5\" R=\"$3}')",
+      "WebFetch(domain:github.com)",
+      "Bash(awk -F, '{print \"ep\"$1\" R=\"$3\" mat=\"$5\" moves=\"$6}')"
+    ]
+  }
+}

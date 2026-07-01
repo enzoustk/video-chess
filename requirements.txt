@@ -1,0 +1,9 @@
+# Projeto Final - Aprendizado por Reforço Profundo - Atari Video Chess
+# Testado em Python 3.14 / macOS (Apple Silicon, MPS).
+ale-py>=0.12.0
+gymnasium>=1.3.0
+torch>=2.11.0
+numpy>=2.0
+opencv-python>=4.10
+matplotlib>=3.8
+moviepy>=2.0          # opcional, para gravar vídeos da avaliação
