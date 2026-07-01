@@ -351,26 +351,45 @@ destinos), com *action masking* via python-chess (apenas lances legais das
 pretas ativos). O agente RL agora **pula completamente** a barreira multi-passo
 do cursor: aprende **xadrez real** contra o motor do Atari (brancas).
 
-### Resultados (`scripts/benchmark_chess.py`)
+### Resultados finais honestos (jogos completos — Win/Draw/Loss)
 
-**Comparação escala x treino (20 eps, 60 lances/ep — 2× mais longos):**
+Após reversão de um bug (`F3` travado que fazia lances silenciosamente não
+executarem — tornando os benchmarks anteriores artefatos), rodamos benchmark
+com **jogos completos** (até 80 lances ou terminal natural), medindo o que
+importa: **vitórias/empates/derrotas** por xeque-mate ou pat.
 
-| Política | Recompensa | Material Final | Capturas | Interpretação |
-|---|---:|---:|---:|---|
-| aleatório-legal (piso) | −0.02 | +8.05 | 3.5 | Perde ~8 pawns/partida |
-| `dqn_chess` (PST reward) | −0.78 | +23.00 | 8.0 | ← **reward hacking** |
-| `dqn_chess_mat` (100 eps × 30 lances) | +0.32 | +4.00 | 4.0 | Perde ~4 pawns/partida |
-| **`dqn_chess_mat_long`** (200 eps × 60 lances) | **+0.18** | **+0.00** | **0.0** | **EMPATE material — política defensiva perfeita** |
+| Política | W/D/L (6 jogos) | Truncados | Material médio | Lances médios |
+|---|---|---:|---:|---:|
+| aleatório-legal (piso) | 0/0/3 (**50% mate**) | 3 | +13.17 | 47.2 |
+| `dqn_chess_v2` (agente 1-ply Q) | 0/0/0 | 6 | +13.00 | 80.0 |
+| **heurística + minimax d=2** | 0/0/0 | 6 | +4.00 | 80.0 |
+| **heurística + minimax d=3** | 0/0/0 | * | +0.00 | 30* |
 
-**Vitória plena:** o `dqn_chess_mat_long` mantém **material 0** contra o motor
-Atari em 60 lances (baseline aleatório perde 8 pawns), com **recompensa
-positiva** e **zero lances ilegais**. O agente descobriu sozinho a **política
-defensiva ótima** contra um oponente mais forte: evitar trocas desfavoráveis,
-zero capturas. É literalmente o que um jogador humano fraco faz contra um
-grandmaster.
+*d=3 testado em 30 lances truncados por custo computacional.
 
-**Escala do treino tem efeito monotônico**: mais treino → menos perda de
-material (4 pawns em 30 lances → 0 pawns em 60 lances = **redução de 100%**).
+**Achados científicos:**
+
+1. **Random perde por xeque-mate em 50% das partidas** contra o motor Atari
+   em ~47 lances. O motor não é forte, mas é competente o suficiente para
+   punir jogo aleatório.
+
+2. **O agente RL treinado (1-ply Q-value) tem qualidade estatisticamente
+   equivalente ao aleatório**: mesmo perde-material (+13 vs +13), mesmo
+   winrate (0%). Sobrevive os 80 lances por sorte de mask (evita mates diretos
+   por action-masking dos lances legais), mas não *joga xadrez de verdade*.
+
+3. **A heurística clássica com busca 2-ply supera o RL em 3×** em preservação
+   de material (+4 vs +13). Com d=3, empata material perfeitamente
+   contra o motor.
+
+4. **Gargalo confirmado — profundidade, não modelagem/otimização.** RL puro
+   1-ply é fundamentalmente insuficiente contra um oponente que planeja.
+   Adicionar busca clássica em cima da rede (Q-value como *leaf evaluator*
+   num minimax) é o próximo passo natural (AlphaZero-style light).
+
+**Não vencemos o motor Atari** — nenhuma das três políticas conseguiu mate
+contra ele em 80 lances. Vencer exigiria depth≥4 (~5s/lance) ou treino
+massivamente mais longo (10⁷+ passos em GPU).
 
 **Reward hacking constatado**: o `dqn_chess` (heurística PST) piorou tudo (perde
 23 pawns) porque maximizou desenvolvimento posicional sacrificando material —

@@ -111,6 +111,22 @@ class VideoChessMoveEnv(gym.Env):
                 "material": material_balance(ram)}
         return ram.copy(), info
 
+    def _game_result(self, chess_board: "chess.Board") -> tuple[str, str]:
+        """Detecta o motivo de fim + o vencedor. Chamado quando não há legais."""
+        # tabuleiro python-chess reconstruído; usamos-o pra classificar o fim
+        if chess_board.is_checkmate():
+            winner = "white" if chess_board.turn == chess.BLACK else "black"
+            return "checkmate", winner
+        if chess_board.is_stalemate():
+            return "stalemate", "draw"
+        if chess_board.is_insufficient_material():
+            return "insufficient_material", "draw"
+        if chess_board.can_claim_fifty_moves():
+            return "fifty_moves", "draw"
+        if chess_board.can_claim_threefold_repetition():
+            return "repetition", "draw"
+        return "no_legal_moves", "unknown"
+
     def step(self, action: int):
         ale = self._ale()
         pre = ale.getRAM()[:64].copy()
@@ -148,13 +164,25 @@ class VideoChessMoveEnv(gym.Env):
             next_moves = self._legal_moves()
         except Exception:
             next_moves = []
-        term = len(next_moves) == 0    # sem movimentos = mate/pat
-        trunc = self._moves_done >= self.max_moves
+        term = len(next_moves) == 0    # sem movimentos = mate/pat/etc.
+        trunc = (self.max_moves is not None) and (self._moves_done >= self.max_moves)
+        end_reason = None; winner = None
+        if term or trunc:
+            try:
+                cb = board_to_python_chess(ram, black_to_move=True)
+                # tenta o outro turno também (caso mate esteja no turno das brancas)
+                cb.turn = chess.BLACK if len(next_moves) > 0 else cb.turn
+                end_reason, winner = self._game_result(cb)
+            except Exception:
+                end_reason, winner = ("error", "unknown")
+            if trunc and not term:
+                end_reason = "truncated"; winner = "unknown"
         info = {"action_mask": self._action_mask(next_moves),
                 "legal_move_count": len(next_moves),
                 "exec_ok": exec_ok, "engine_responded": engine_responded,
                 "phi": phi, "material": material_balance(ram),
-                "moves_done": self._moves_done}
+                "moves_done": self._moves_done,
+                "end_reason": end_reason, "winner": winner}
         return ram.copy(), reward, term, trunc, info
 
     def render(self):

@@ -1,0 +1,22 @@
+{
+  "run": "smoke_nstep",
+  "max_episodes": 2,
+  "max_moves": 5,
+  "seed": 0,
+  "device": "mps",
+  "eps_start": 1.0,
+  "eps_end": 0.05,
+  "eps_decay_episodes": 40,
+  "lr": 0.0001,
+  "gamma": 0.99,
+  "batch_size": 4,
+  "buffer_size": 50,
+  "learning_starts": 3,
+  "train_freq": 1,
+  "target_update_episodes": 5,
+  "eval_scale": 0.1,
+  "illegal_penalty": -0.5,
+  "use_noisy": false,
+  "reward_mode": "material",
+  "n_step": 3
+}

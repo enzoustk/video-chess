@@ -101,19 +101,50 @@ def _navigate(env, target_byte: int, watch: int, max_iters: int = 80) -> bool:
     return int(ale.getRAM()[watch]) == target_byte
 
 
-def execute_move(env, src_sq: int, dst_sq: int) -> bool:
-    """Executa um lance de xadrez usando FIRE mechanic. Índices row-major 0..63."""
+def execute_move(env, src_sq: int, dst_sq: int, debug: bool = False) -> bool:
+    """Executa um lance de xadrez via **setRAM direto** dos bytes 84 (origem)
+    e 85 (destino), pulando a navegação do cursor. Isso evita mecânicas de
+    snap-to-legal que quebram a navegação passo-a-passo para peças com
+    movimento não-linear (cavalos etc.).
+
+    Fluxo:
+      1. Aguarda F3=0 (nossa vez).
+      2. setRAM(84) = src_sq   (também escreve em D8 = cursor, via NOOP).
+      3. FIRE longo → seleciona.
+      4. setRAM(85) = dst_sq.
+      5. FIRE longo → executa.
+    Retorna True se F3 avançou (192/128 = engine processando).
+    """
     ale = env.unwrapped.ale
-    # navega cursor livre até a origem
+    def dbg(msg):
+        if debug:
+            print(f"    [exec] {msg} | F3={_state(ale)} 84={int(ale.getRAM()[84])} 85={int(ale.getRAM()[85])}")
+    # aguarda modo cursor (F3=0)
+    for _ in range(300):
+        if _state(ale) == 0: break
+        env.step(NOOP)
+    if _state(ale) != 0:
+        dbg("FALHA: F3 nao voltou a 0")
+        return False
+    # Fase 1: navegação real do cursor livre (byte 84) até a origem.
+    # Isso mantém D6 (peça sob o cursor) coerente naturalmente pelo joystick handler.
     if not _navigate(env, src_sq, watch=84):
+        dbg("FALHA: navegação byte 84 para origem")
         return False
-    _fire(env)
-    if _state(ale) != 1:  # não selecionou
+    dbg("chegou na origem (via navegação)")
+    _fire(env)   # FIRE1: seleciona (F3 vai a 1)
+    if _state(ale) != 1:
+        dbg("FALHA: FIRE1 nao selecionou")
         return False
-    # navega cursor de destino
-    if not _navigate(env, dst_sq, watch=85):
-        return False
-    _fire(env)
+    dbg("selecionou (F3=1)")
+    # Fase 2: setRAM DIRETO em D5=byte 85 + F5=0 para contornar navegação
+    # que falha em peças de movimento não-linear (cavalo/bispo/torre etc.).
+    ale.setRAM(85, dst_sq)
+    ale.setRAM(117, 0)        # F5 = 0 (valid — legalidade já checada em python-chess)
+    for _ in range(4): env.step(NOOP)
+    dbg("apos setRAM(85,dst); F5=0")
+    _fire(env)   # FIRE2: executa
+    dbg("FIRE2 enviado")
     return True
 
 
@@ -126,28 +157,54 @@ def wait_engine_response(env, pre_move_board: np.ndarray,
                          max_steps: int = 4000) -> bool:
     """Aguarda até o motor Atari (brancas) responder ao nosso lance.
 
+    Cutucada crucial: após o nosso FIRE2, o engine costuma travar em
+    ``F3=$80`` (piece moving) sem transitar para ``$c0`` (board search).
+    Depois de um pequeno settle, forçamos ``F3=$c0, F4=0`` para chutar a
+    máquina de estados de volta para "buscar lance do branco".
+
     Passa ``pre_move_board`` = snapshot dos bytes 0-63 ANTES de chamar
-    ``execute_move``. Retorna quando pelo menos uma peça BRANCA (low nibble
-    1..6) mudou de casa, indicando que o engine já jogou. Faz um settle final
-    para estabilizar animações.
+    ``execute_move``. Retorna True quando pelo menos uma peça BRANCA mudou
+    de casa e F3 voltou a 0 (nossa vez novamente).
     """
     ale = env.unwrapped.ale
     pre_lo = pre_move_board & 0x0F
-    for _ in range(max_steps):
+    white_moved = False
+    kicked = False
+    for step in range(max_steps):
         env.step(NOOP)
+        # Cutucada: depois de ~30 steps se F3 ainda é 128 e branco não jogou,
+        # força F3=$c0/F4=0 para disparar a busca do branco.
+        if step == 30 and not kicked and _state(ale) == 0x80 and not white_moved:
+            ale.setRAM(115, 0xc0)   # F3 = board search
+            ale.setRAM(116, 0)      # F4 = 0 (timer done)
+            kicked = True
         cur_lo = ale.getRAM()[:64] & 0x0F
-        # peças brancas que mudaram (apareceram OU saíram vs. pre-move)
-        white_changes = 0
-        for sq in range(64):
-            p_before = int(pre_lo[sq])
-            p_after = int(cur_lo[sq])
-            if p_before != p_after and (1 <= p_before <= 6 or 1 <= p_after <= 6):
-                white_changes += 1
-                if white_changes >= 2:  # brancas source + dest
-                    for _ in range(30):
-                        env.step(NOOP)  # settle
-                    return True
-    return False
+        if not white_moved:
+            white_changes = 0
+            for sq in range(64):
+                p_before = int(pre_lo[sq])
+                p_after = int(cur_lo[sq])
+                if p_before != p_after and (1 <= p_before <= 6 or 1 <= p_after <= 6):
+                    white_changes += 1
+                    if white_changes >= 2:
+                        white_moved = True
+                        break
+        if white_moved and _state(ale) == 0:
+            for _ in range(6):
+                env.step(NOOP)
+            return True
+        # Segunda cutucada: F3 continua travado depois do branco jogar
+        if white_moved and step > 500 and _state(ale) == 0x80:
+            ale.setRAM(115, 0)   # força volta ao modo cursor
+            for _ in range(6):
+                env.step(NOOP)
+            return True
+    # Timeout: força volta ao modo cursor mesmo assim para não travar o próximo lance
+    if _state(ale) != 0:
+        ale.setRAM(115, 0)
+        for _ in range(6):
+            env.step(NOOP)
+    return white_moved
 
 
 def board_to_python_chess(ram: np.ndarray, black_to_move: bool = True) -> "chess.Board":

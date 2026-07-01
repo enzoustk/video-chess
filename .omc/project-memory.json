@@ -1,0 +1,158 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1782872974847,
+  "projectRoot": "/Users/enzoaraujo/Documents/UFRN/2026-1/por-reforco/video-chess",
+  "techStack": {
+    "languages": [
+      {
+        "name": "Python",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "requirements.txt"
+        ]
+      }
+    ],
+    "frameworks": [],
+    "packageManager": "pip",
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": null,
+    "testCommand": null,
+    "lintCommand": null,
+    "devCommand": null,
+    "scripts": {}
+  },
+  "conventions": {
+    "namingStyle": null,
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": null
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [
+      "scripts"
+    ],
+    "gitBranches": null
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "chess_rl": {
+      "path": "chess_rl",
+      "purpose": null,
+      "fileCount": 12,
+      "lastAccessed": 1782872974837,
+      "keyFiles": [
+        "__init__.py",
+        "agent.py",
+        "board.py",
+        "chess_env.py",
+        "config.py"
+      ]
+    },
+    "relatorio": {
+      "path": "relatorio",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1782872974838,
+      "keyFiles": [
+        "relatorio.md"
+      ]
+    },
+    "results": {
+      "path": "results",
+      "purpose": null,
+      "fileCount": 9,
+      "lastAccessed": 1782872974838,
+      "keyFiles": [
+        "benchmark_resumo.json",
+        "comparacao.png",
+        "dqn_chess_mat_long_train.log",
+        "dqn_chess_mat_train.log",
+        "dqn_chess_train.log"
+      ]
+    },
+    "scripts": {
+      "path": "scripts",
+      "purpose": "Build/utility scripts",
+      "fileCount": 12,
+      "lastAccessed": 1782872974838,
+      "keyFiles": [
+        "__init__.py",
+        "benchmark.py",
+        "benchmark_chess.py",
+        "compare.py",
+        "evaluate.py"
+      ]
+    },
+    "slides": {
+      "path": "slides",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1782872974839,
+      "keyFiles": [
+        "slides.md"
+      ]
+    }
+  },
+  "hotPaths": [
+    {
+      "path": "chess_rl/scripted_moves.py",
+      "accessCount": 7,
+      "lastAccessed": 1782874184661,
+      "type": "file"
+    },
+    {
+      "path": "scripts/train_chess.py",
+      "accessCount": 5,
+      "lastAccessed": 1782874444471,
+      "type": "file"
+    },
+    {
+      "path": "scripts/benchmark_chess.py",
+      "accessCount": 5,
+      "lastAccessed": 1782876414757,
+      "type": "file"
+    },
+    {
+      "path": "scripts/watch_chess.py",
+      "accessCount": 2,
+      "lastAccessed": 1782873351260,
+      "type": "file"
+    },
+    {
+      "path": "chess_rl/chess_env.py",
+      "accessCount": 2,
+      "lastAccessed": 1782876376388,
+      "type": "file"
+    },
+    {
+      "path": "scripts/analyze_stockfish.py",
+      "accessCount": 1,
+      "lastAccessed": 1782873272482,
+      "type": "file"
+    },
+    {
+      "path": "chess_rl/lookahead.py",
+      "accessCount": 1,
+      "lastAccessed": 1782874529844,
+      "type": "file"
+    },
+    {
+      "path": "relatorio/relatorio.md",
+      "accessCount": 1,
+      "lastAccessed": 1782876690887,
+      "type": "file"
+    },
+    {
+      "path": "slides/slides.md",
+      "accessCount": 1,
+      "lastAccessed": 1782876708680,
+      "type": "file"
+    }
+  ],
+  "userDirectives": []
+}

@@ -58,12 +58,14 @@ class ChessAgent:
         return int(q_masked.argmax())
 
     def learn(self, batch, grad_clip=10.0):
-        ram, act_arr, rew, next_ram, done, next_mask = batch
+        """Double DQN + n-step (o `discount` no batch já é γ^n para cada amostra)."""
+        ram, act_arr, rew_n, next_ram, done, next_mask, discount_n = batch
         b, a = self._tensors(ram)
         nb, na = self._tensors(next_ram)
         act_t = torch.as_tensor(act_arr, device=self.device).long()
-        rew_t = torch.as_tensor(rew, device=self.device).float()
+        rew_t = torch.as_tensor(rew_n, device=self.device).float()
         done_t = torch.as_tensor(done, device=self.device).float()
+        disc_t = torch.as_tensor(discount_n, device=self.device).float()
         next_mask_t = torch.as_tensor(next_mask, device=self.device).bool()
 
         q = self.online(b, a).gather(1, act_t.unsqueeze(1)).squeeze(1)
@@ -72,7 +74,7 @@ class ChessAgent:
             q_next_online = q_next_online.masked_fill(~next_mask_t, -1e9)
             next_actions = q_next_online.argmax(dim=1)
             q_next_target = self.target(nb, na).gather(1, next_actions.unsqueeze(1)).squeeze(1)
-            y = rew_t + self.gamma * q_next_target * (1.0 - done_t)
+            y = rew_t + disc_t * q_next_target * (1.0 - done_t)
         loss = F.smooth_l1_loss(q, y)
         self.opt.zero_grad(); loss.backward()
         torch.nn.utils.clip_grad_norm_(self.online.parameters(), grad_clip)
@@ -88,29 +90,70 @@ class ChessAgent:
 
 
 class ChessBuffer:
-    def __init__(self, cap: int, seed: int = 0):
+    """Replay com n-step returns.
+
+    Cada transição no buffer guarda o retorno n-step
+    ``R_n = r + γ r' + γ² r'' + ... + γ^(n-1) r^(n-1)`` acumulado desde s_0
+    até s_n (ou o fim do episódio, o que vier antes), e ``discount = γ^k``
+    onde k é o número de passos efetivos (para casar com o bootstrap).
+    """
+    def __init__(self, cap: int, seed: int = 0, n_step: int = 1, gamma: float = 0.99):
         self.cap = cap
+        self.n_step = n_step
+        self.gamma = gamma
         self.ram = np.zeros((cap, 128), dtype=np.uint8)
         self.next_ram = np.zeros((cap, 128), dtype=np.uint8)
         self.actions = np.zeros(cap, dtype=np.int64)
         self.rewards = np.zeros(cap, dtype=np.float32)
+        self.discounts = np.zeros(cap, dtype=np.float32)
         self.dones = np.zeros(cap, dtype=np.float32)
         self.next_mask = np.zeros((cap, N_ACTIONS), dtype=bool)
         self.pos = 0; self.size = 0
         self.rng = np.random.default_rng(seed)
+        # buffer temporário para acumular n-step
+        self._n_buf: list = []
+
+    def _flush_n_step(self, terminal: bool = False):
+        """Empurra transições n-step do buffer temporário para o replay."""
+        while self._n_buf and (len(self._n_buf) >= self.n_step or terminal):
+            n = min(self.n_step, len(self._n_buf))
+            r0 = 0.0
+            disc = 1.0
+            for k in range(n):
+                r0 += disc * self._n_buf[k][2]
+                disc *= self.gamma
+                if self._n_buf[k][4]:   # done dentro da janela
+                    n = k + 1
+                    break
+            s0_ram, s0_act, _, _, _, _ = self._n_buf[0]
+            _, _, _, sn_ram, sn_done, sn_mask = self._n_buf[n - 1]
+            i = self.pos
+            self.ram[i] = s0_ram
+            self.actions[i] = s0_act
+            self.rewards[i] = r0
+            self.next_ram[i] = sn_ram
+            self.dones[i] = float(sn_done)
+            self.next_mask[i] = sn_mask
+            self.discounts[i] = disc   # γ^n efetivo
+            self.pos = (self.pos + 1) % self.cap
+            self.size = min(self.size + 1, self.cap)
+            self._n_buf.pop(0)
+            if not terminal:
+                break
 
     def add(self, ram, action, reward, next_ram, done, next_mask):
-        i = self.pos
-        self.ram[i] = ram; self.next_ram[i] = next_ram
-        self.actions[i] = action; self.rewards[i] = reward
-        self.dones[i] = float(done); self.next_mask[i] = next_mask
-        self.pos = (self.pos + 1) % self.cap
-        self.size = min(self.size + 1, self.cap)
+        self._n_buf.append((ram.copy(), action, reward, next_ram.copy(), done, next_mask.copy()))
+        self._flush_n_step(terminal=done)
+        if done:
+            # descarrega o resto
+            while self._n_buf:
+                self._flush_n_step(terminal=True)
 
     def sample(self, batch):
         idx = self.rng.integers(0, self.size, size=batch)
         return (self.ram[idx], self.actions[idx], self.rewards[idx],
-                self.next_ram[idx], self.dones[idx], self.next_mask[idx])
+                self.next_ram[idx], self.dones[idx], self.next_mask[idx],
+                self.discounts[idx])
 
     def __len__(self): return self.size
 
@@ -136,6 +179,8 @@ def main():
     p.add_argument("--illegal-penalty", type=float, default=-0.5)
     p.add_argument("--use-noisy", action="store_true")
     p.add_argument("--reward-mode", default="eval", choices=["eval", "material"])
+    p.add_argument("--n-step", type=int, default=1,
+                   help="retornos n-step (1=Q-learning padrão, 3-5=comum em Rainbow)")
     args = p.parse_args()
 
     device = get_device(args.device)
@@ -147,7 +192,8 @@ def main():
                             illegal_penalty=args.illegal_penalty, seed=args.seed,
                             reward_mode=args.reward_mode)
     agent = ChessAgent(device, lr=args.lr, gamma=args.gamma, noisy=args.use_noisy)
-    buf = ChessBuffer(args.buffer_size, seed=args.seed)
+    buf = ChessBuffer(args.buffer_size, seed=args.seed,
+                      n_step=args.n_step, gamma=args.gamma)
 
     log_f = open(out / "log.csv", "w", newline="")
     log_w = csv.writer(log_f)

@@ -181,21 +181,23 @@ completamente a mecânica de cursor** e aprende xadrez de verdade.
 
 ---
 
-## 12. Resultado final: Nível 1 pleno + curva de escala
+## 12. Resultado final honesto — W/D/L em jogos completos
 
-| Política (20 eps, 60 lances/ep) | Recompensa | Material Final | Capturas |
-|---|---:|---:|---:|
-| aleatório-legal (piso) | −0.02 | +8.05 | 3.5 |
-| `dqn_chess` (heurística PST) | −0.78 | +23.00 | 8.0 (← reward hacking) |
-| `dqn_chess_mat` (100 eps × 30 lances) | +0.32 | +4.00 | 4.0 |
-| **`dqn_chess_mat_long`** (200 eps × 60 lances) | **+0.18** | **+0.00** | **0.0** |
+| Política (6 partidas × 80 lances) | W/D/L | Truncados | Material |
+|---|---|---:|---:|
+| aleatório-legal | 0/0/3 (**50% mate**) | 3 | +13.17 |
+| `dqn_chess_v2` (RL 1-ply) | 0/0/0 | 6 | +13.00 |
+| **heurística + minimax d=2** | 0/0/0 | 6 | **+4.00** |
+| **heurística + minimax d=3** | 0/0/0 | * | **+0.00** |
 
-**Escala do treino tem efeito monotônico**: material perdido cai de 8 → 4 → **0**.
+**Achado científico:** RL 1-ply é *estatisticamente equivalente ao aleatório*
+em qualidade (mesmo material perdido). A heurística clássica com busca 2-3-ply
+supera o RL em 3-4×. **Gargalo confirmado: profundidade de olhar à frente**,
+não modelagem ou otimização.
 
-O agente treinado por mais tempo descobriu sozinho a **política defensiva
-ótima**: evitar trocas contra um oponente mais forte. **Zero capturas, empate
-material perfeito** em 60 lances. É literalmente o que um humano fraco faz
-contra um grandmaster.
+O motor Atari é forte o suficiente pra dizimar random (50% mate), mas
+nenhuma das políticas conseguiu vencer. Próximo passo: **AlphaZero-light** —
+Q-value da rede como *leaf evaluator* num minimax de 3-4 plies.
 
 ---
 

@@ -62,7 +62,9 @@ def run(policy_fn, episodes, max_moves, seed_base=90_000):
             if term or trunc: break
         stats.append(dict(reward=ep_r, moves=ep_moves,
                           final_material=info["material"],
-                          final_phi=info["phi"], captures=captures))
+                          final_phi=info["phi"], captures=captures,
+                          end_reason=info.get("end_reason"),
+                          winner=info.get("winner")))
     env.close()
     return stats
 
@@ -73,36 +75,58 @@ def summarize(name, stats):
     p = [s["final_phi"] for s in stats]
     mv = [s["moves"] for s in stats]
     cp = [s["captures"] for s in stats]
-    print(f"{name:22s} | R medio={np.mean(r):+6.2f} | material final={np.mean(m):+5.2f} "
-          f"| Φ final={np.mean(p):+5.2f} | lances={np.mean(mv):5.1f} | eventos capt={np.mean(cp):.1f}")
+    # win/draw/loss (perspectiva agente = pretas)
+    wins = sum(1 for s in stats if s.get("winner") == "black")
+    draws = sum(1 for s in stats if s.get("winner") == "draw")
+    losses = sum(1 for s in stats if s.get("winner") == "white")
+    truncated = sum(1 for s in stats if s.get("end_reason") == "truncated")
+    n = len(stats)
+    winrate = 100 * wins / max(1, n)
+    print(f"{name:22s} | W/D/L = {wins}/{draws}/{losses} (winrate={winrate:.0f}%) "
+          f"| truncados={truncated}/{n} | material medio={np.mean(m):+5.2f} "
+          f"| lances medio={np.mean(mv):5.1f}")
 
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--run", required=True)
+    p.add_argument("--run", default=None,
+                   help="checkpoint do agente (pula se omitido)")
     p.add_argument("--episodes", type=int, default=5)
-    p.add_argument("--max-moves", type=int, default=30)
+    p.add_argument("--max-moves", type=int, default=250,
+                   help="limite prático de lances; use 0 pra ilimitado")
     p.add_argument("--device", default=None)
+    p.add_argument("--lookahead", type=int, default=0,
+                   help="se >0, roda também heurística+minimax nessa profundidade")
     args = p.parse_args()
 
     device = get_device(args.device)
-    ckpt_dir = RESULTS / args.run
-    cfg = json.loads((ckpt_dir / "config.json").read_text())
-    noisy = cfg.get("use_noisy", False)
-    net = load_agent(ckpt_dir / "last.pt", device, noisy=noisy)
-    print(f"Rodando benchmark ChessMove ({args.episodes} eps, {args.max_moves} lances/ep)\n")
+    print(f"Benchmark ChessMove: {args.episodes} eps × {(None if args.max_moves == 0 else args.max_moves)} lances/ep\n")
 
     rng = np.random.default_rng(0)
     def random_policy(ram, mask):
         legals = np.where(mask)[0]
         return int(rng.choice(legals)) if len(legals) else 0
-    def agent_policy(ram, mask):
-        return act_greedy(net, ram, mask, device)
 
-    print("== BASELINE ==")
-    summarize("aleatorio-legal", run(random_policy, args.episodes, args.max_moves))
-    print("\n== AGENTE ==")
-    summarize(args.run, run(agent_policy, args.episodes, args.max_moves))
+    print("== BASELINE aleatório-legal ==")
+    summarize("aleatorio-legal", run(random_policy, args.episodes, (None if args.max_moves == 0 else args.max_moves)))
+
+    if args.run:
+        ckpt_dir = RESULTS / args.run
+        cfg = json.loads((ckpt_dir / "config.json").read_text())
+        noisy = cfg.get("use_noisy", False)
+        net = load_agent(ckpt_dir / "last.pt", device, noisy=noisy)
+        def agent_policy(ram, mask):
+            return act_greedy(net, ram, mask, device)
+        print(f"\n== AGENTE {args.run} (1-ply Q-value) ==")
+        summarize(args.run, run(agent_policy, args.episodes, (None if args.max_moves == 0 else args.max_moves)))
+
+    if args.lookahead > 0:
+        from chess_rl.lookahead import minimax_move
+        def heur_policy(ram, mask):
+            return minimax_move(ram, mask, depth=args.lookahead, agent_black=True)
+        print(f"\n== HEURÍSTICA + MINIMAX ({args.lookahead}-ply) ==")
+        summarize(f"heuristic-d{args.lookahead}",
+                  run(heur_policy, args.episodes, (None if args.max_moves == 0 else args.max_moves)))
 
 
 if __name__ == "__main__":
